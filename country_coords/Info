@@ -1,0 +1,5 @@
+Based on https://gist.github.com/tadast/8827699:
+
+- remove duplicates
+- striped and no unecessary double quotes
+- floating point values instead of strings
