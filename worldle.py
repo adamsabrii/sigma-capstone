@@ -1,15 +1,40 @@
-import pandas as pd
+import pandas as pd  # type: ignore
 from math import asin, sin, cos, sqrt, radians, pi
 from random import choice
+from rich.console import Console
+from rich.table import Column, Table
+import time
+import questionary as qty
 
+# Ideas for console:
+# Use a table that shows the list of countries
+# Use a table that shows the user's guesses
+
+# Plan:
+# Start with implementing the console
+# I guess just go from there.
 
 RADIUS_EARTH = 6371  # km
+
+console = Console(width=100)
 
 
 class Worldle():
     def __init__(self):
-        print("\nStarting game\n")
-        self.data = self.read_data()
+        with console.status("\nStarting game...\n"):
+            self.data = self.read_data()
+            self.table = self.init_table()
+            time.sleep(1.5)
+        console.rule(
+            "[green bold] WORLDLE :earth_africa:")
+
+    def init_table(self):
+        table = Table(
+            Column("Guess No", justify="right"),
+            Column("Country", justify="left", no_wrap=True),
+            Column("Distance (km)", justify="right"),
+            title="")
+        return table
 
     def game_logic(self, country_coords):
         """
@@ -17,42 +42,46 @@ class Worldle():
 
         *** Need to implement duplicate guesses feature ***
         *** Improve game loop ***
-        *** Implement console ***
 
         :param self: --
         :param country_coords: Expects the dictionary contains keys: (country names)
           and the values: (latitude (average)) and longitude (average))
         """
-        self.introductions(country_coords)
+
+        view_flag = self.introductions()
+        if view_flag:
+            self.view_countries(country_coords)
         target_country = self.random_country(country_coords)
         # print(target_country)
-        guess_history = {}
-        guess_no = 1
-        limit = 25
+        guess_history = []
+        guess_no = 0
+        limit = 200
+
         while guess_no < limit:
-            print(f"\nGuess {guess_no}")
-            # hint
-            hint_request = None
+            console.rule(
+                "[green bold] WORLDLE :earth_africa:")
+            console.print(
+                "After you've made your first guess, if you would like a hint type 'hint'.")
+            console.print(
+                f"\nYou may like to know that circumference of the Earth is {int(2*pi*RADIUS_EARTH)}km")
+            console.print(
+                "\n** Game is currently case and punctuation sensitive **")
             if len(guess_history) != 0:
-                print(
-                    f"You're closest guess was {min(guess_history.values())}km off, would you like a hint?")
-                hint_request = input(
-                    "Type 'yes' if you would like a hint: ").lower()
-                if hint_request == 'yes':
-                    hint_list = self.hint(
-                        country_coords, guess_history, target_country)
-                    print(hint_list)
+                self.table.add_row(
+                    str(guess_no), guess_history[guess_no-1][0], str(guess_history[guess_no-1][1]))
+                console.print(self.table, justify="center")
 
-            # user guess - validation
-            guess = self.user_guess(country_coords)
+            # user guess - validation - hint
+            guess = self.user_guess(
+                country_coords, guess_history, target_country)
             # is correct?
-
             guess_no = self.is_correct(guess, target_country, guess_no)
             # calc_distance
             distance = self.calc_distance(
                 target_country, guess, country_coords)
-            guess_history[guess] = distance
-            print(f"\nYou're off by {distance}km!")
+            guess_history.append((guess, distance))
+            console.clear()
+            print("")
 
         print(f"You're out of guesses! The country was {target_country}")
         return
@@ -64,7 +93,7 @@ class Worldle():
 
         :param self: --
 
-        Returns: 
+        Returns:
         A dictionary with keys: (country names) and the values: (latitude (average)) and longitude (average))
         """
         col_names = ["Country", "Latitude (average)", "Longitude (average)"]
@@ -74,7 +103,7 @@ class Worldle():
         country_coords = df.to_dict()
         return country_coords
 
-    def introductions(self, country_coords):
+    def introductions(self):
         """
         Introductions
 
@@ -82,17 +111,21 @@ class Worldle():
         :param country_coords: Expects the dictionary contains keys: (country names)
           and the values: (latitude (average)) and longitude (average))
         """
-        print("\n\nWelcome to Worldle!")
-        print("\nA country will be chosen at random and all you have to do is find it!")
-        print("\n** You may type 'exit' at any point to quit the game. **")
-        to_view = input("\nIf you have just started a session, I recommend having a look at the list of countries.\nEnter 'yes' if you would like to view the list of countries before starting...\notherwise enter anything to continue: ").strip().lower()
+        console.print("\n[underline]Welcome to Worldle!", justify="center")
+        console.print(
+            "\nA country will be chosen at random and all you have to do is find it!")
+        console.print(
+            "\n[red]** You may type 'exit' at [bold]any[/] point to quit the game. **")
+        to_view = console.input(
+            "\nEnter 'yes' if you would like to view the list of countries before starting...\n\n[italics]Recommended to check spelling\n\notherwise enter anything to continue: ").strip().lower()
+        view_flag = False
         if to_view == "yes":
-            self.view_countries(country_coords)
+            view_flag = True
         elif to_view == "exit":
             self.quit_game()
-        print(
-            f"\nYou may like to know that circumference of the Earth is {int(2*pi*RADIUS_EARTH)}km")
-        return
+        console.clear()
+        print("")
+        return view_flag
 
     def view_countries(self, country_coords):
         """
@@ -134,13 +167,13 @@ class Worldle():
         :rtype: list
         """
         # find best guess
-        best_dist = min(guess_history.values())
+        best_dist = min([item[1] for item in guess_history])
         # best_guess = [k for k in guess_history if guess_history[k] == best_dist][0]
         hint_list = [country for country in country_coords.keys(
         ) if self.calc_distance(target, country, country_coords) <= best_dist]
         return hint_list
 
-    def user_guess(self, country_coords):
+    def user_guess(self, country_coords, guess_history, target):
         """
         Takes the user input and does some validation.
         *** Validation can be improved for case sensitivity. Could be tricky to conserve the lowercase 'the'
@@ -154,18 +187,20 @@ class Worldle():
         Returns:
         The user's guess as a string.
         """
-        print("\n** Game is currently case and punctuation sensitive **")
-        flag = False
-        while flag == False:
+
+        while True:
             guess = input("\nEnter a country: ")
             if any([ch.isnumeric() for ch in guess]):
                 print("\nLooks like you've entered a number...")
             elif guess.strip().lower() == "exit":
                 self.quit_game()
+            elif len(guess_history) != 0 and guess.strip().lower() == "hint":
+                print(self.hint(
+                    country_coords, guess_history, target))
             elif self.guess_validation(guess, country_coords):
                 break
             else:
-                print("\n Try again.")
+                print("\n Try again...")
         return guess
 
     def guess_validation(self, guess, country_coords):
@@ -231,27 +266,39 @@ class Worldle():
         The guess number appended by 1 if the countries don't match, otherwise runs the .winner() method.
         """
         if guess == target:
-            self.winner(guess_no)
+            self.winner(guess_no+1, guess)
         else:
             guess_no += 1
         return guess_no
 
-    def winner(self, guess_no):
+    def winner(self, guess_no, guess):
         """
         Prints winner messages and asks user if they want to play again
 
         :param self: --
         :param guess_no: (int)
         """
-        print(f"\n*** Congratulations! You got it in {guess_no} guesses ***")
-        print("\nDo you want to play again?")
-        again = input("Yes or No: ").strip().lower()
-        if again == 'yes':
+        console.clear()
+        print("")
+        self.table.add_row("[white on green]" +
+                           str(guess_no), "[white on green]" +
+                           guess, "[white on green]0"
+                           )
+        console.print(self.table, justify="center")
+        console.print(
+            f"\n[green bold]Congratulations! You got it in {guess_no} guesses", justify="center")
+        # print("\nDo you want to play again?")
+        # again = input("Yes or No: ").strip().lower()
+        again = qty.select("Would you like to play again?:", choices=[
+            'Yes', 'No']).ask()
+        if again == 'Yes':
+            self.table = self.init_table()
             self.game_logic(self.data)
-        elif again == 'no' or again == 'exit':
+        elif again == 'No' or again == 'exit':
             self.quit_game()
         else:
-            print("Enter 'yes' or 'no'.")
+            console.clear()
+            print("")
         return
 
     def quit_game(self):
@@ -261,6 +308,8 @@ class Worldle():
         :param self: --
         """
         print("\nEnding game")
+        time.sleep(1.5)
+        console.clear()
         quit()
         return
 
