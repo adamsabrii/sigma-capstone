@@ -63,7 +63,7 @@ class Worldle():
             console.print(
                 "After you've made your first guess, if you would like a hint type 'hint'.")
             console.print(
-                f"\nYou may like to know that circumference of the Earth is {int(2*pi*RADIUS_EARTH)}km")
+                f"\nYou may like to know that maximum distance between two countries is {int(pi*RADIUS_EARTH)}km")
             console.print(
                 "\n** Game is currently case and punctuation sensitive **")
             if len(guess_history) != 0:
