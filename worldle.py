@@ -41,7 +41,6 @@ class Worldle():
         The main game function
 
         *** Need to implement duplicate guesses feature ***
-        *** Improve game loop ***
 
         :param self: --
         :param country_coords: Expects the dictionary contains keys: (country names)
